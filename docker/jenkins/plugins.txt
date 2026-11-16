@@ -1,0 +1,10 @@
+workflow-aggregator
+workflow-stage-step
+pipeline-stage-view
+git
+github
+github-branch-source
+credentials-binding
+ssh-agent
+junit
+coverage

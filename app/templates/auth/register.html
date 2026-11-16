@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Create account | CloudTask{% endblock %}
+{% block content %}
+<section class="auth-panel"><p class="eyebrow">CloudTask</p><h1>Start with a clean slate.</h1><p class="muted">Create a private workspace for your delivery list.</p>
+<form method="post" class="stack"><label>Email<input type="email" name="email" required autocomplete="email"></label><label>Password<input type="password" name="password" minlength="8" required autocomplete="new-password"></label><button class="primary" type="submit">Create account</button></form>
+<p class="muted">Already registered? <a href="{{ url_for('auth.login') }}">Sign in</a></p></section>
+{% endblock %}

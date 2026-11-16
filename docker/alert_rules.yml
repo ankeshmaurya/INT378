@@ -1,0 +1,42 @@
+groups:
+  - name: cloudtask-host-alerts
+    rules:
+      - alert: CloudTaskHighCPU
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{job="node-exporter", mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: cloudtask
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage has been above 80% for 5 minutes. Current value: {{ $value }}%."
+
+      - alert: CloudTaskHighMemory
+        expr: (1 - (node_memory_MemAvailable_bytes{job="node-exporter"} / node_memory_MemTotal_bytes{job="node-exporter"})) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          service: cloudtask
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage has been above 85% for 5 minutes. Current value: {{ $value }}%."
+
+      - alert: CloudTaskHighDisk
+        expr: 100 - ((node_filesystem_avail_bytes{job="node-exporter", mountpoint="/", fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{job="node-exporter", mountpoint="/", fstype!~"tmpfs|overlay"}) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+          service: cloudtask
+        annotations:
+          summary: "High disk usage on {{ $labels.instance }}"
+          description: "Root disk usage has been above 85% for 5 minutes. Current value: {{ $value }}%."
+
+      - alert: CloudTaskHigh5xxErrorRate
+        expr: (sum(rate(cloudtask_http_requests_total{status=~"5.."}[5m])) / clamp_min(sum(rate(cloudtask_http_requests_total[5m])), 1)) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: cloudtask
+        annotations:
+          summary: "High CloudTask 5xx error rate"
+          description: "More than 5% of CloudTask HTTP requests returned 5xx responses for 5 minutes. Current value: {{ $value | humanizePercentage }}."

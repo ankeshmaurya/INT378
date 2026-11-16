@@ -1,0 +1,194 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudTask infrastructure subset for comparison with Terraform.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: cloudtask
+    AllowedPattern: '^[a-z][a-z0-9-]{2,20}$'
+  VpcCidr:
+    Type: String
+    Default: 10.40.0.0/16
+  PublicSubnetCidr:
+    Type: String
+    Default: 10.40.1.0/24
+  AvailabilityZone:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: ap-south-1a
+  AmiId:
+    Type: AWS::EC2::Image::Id
+    Description: Ubuntu 22.04 AMI ID in the selected AWS region.
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    AllowedValues:
+      - t2.micro
+      - t3.micro
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Existing EC2 key pair name.
+  SshCidr:
+    Type: String
+    Description: Administrator public IP in CIDR notation, for example 203.0.113.10/32.
+  MonitoringCidr:
+    Type: String
+    Description: Trusted CIDR allowed to access Prometheus, Grafana, and Node Exporter.
+  AppPort:
+    Type: Number
+    Default: 5000
+    AllowedValues:
+      - 5000
+      - 8000
+
+Resources:
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-vpc'
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref PublicSubnetCidr
+      AvailabilityZone: !Ref AvailabilityZone
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-public-subnet'
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-igw'
+
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-public-routes'
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: CloudTask application and monitoring access
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - Description: SSH from administrator IP only
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SshCidr
+        - Description: Public HTTP traffic
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - Description: Prometheus from trusted monitoring CIDR
+          IpProtocol: tcp
+          FromPort: 9090
+          ToPort: 9090
+          CidrIp: !Ref MonitoringCidr
+        - Description: Grafana from trusted monitoring CIDR
+          IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          CidrIp: !Ref MonitoringCidr
+        - Description: Node Exporter from trusted monitoring CIDR
+          IpProtocol: tcp
+          FromPort: 9100
+          ToPort: 9100
+          CidrIp: !Ref MonitoringCidr
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-sg'
+
+  AssetsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-assets'
+
+  AppInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds:
+        - !Ref AppSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -y
+          apt-get install -y docker.io docker-compose-v2
+          systemctl enable --now docker
+          usermod -aG docker ubuntu
+          mkdir -p /opt/${ProjectName}/docker
+          chown -R ubuntu:ubuntu /opt/${ProjectName}
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-ec2'
+
+Outputs:
+  VpcId:
+    Description: CloudTask VPC ID.
+    Value: !Ref Vpc
+  PublicSubnetId:
+    Description: CloudTask public subnet ID.
+    Value: !Ref PublicSubnet
+  InstanceId:
+    Description: CloudTask EC2 instance ID.
+    Value: !Ref AppInstance
+  Ec2PublicIp:
+    Description: CloudTask EC2 public IPv4 address.
+    Value: !GetAtt AppInstance.PublicIp
+  BucketName:
+    Description: CloudTask S3 assets and backups bucket.
+    Value: !Ref AssetsBucket

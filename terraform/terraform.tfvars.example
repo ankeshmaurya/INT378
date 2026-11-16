@@ -1,0 +1,12 @@
+aws_region          = "ap-south-1"
+project_name        = "cloudtask"
+environment         = "dev"
+instance_type       = "t3.micro"
+ssh_cidr            = "203.0.113.10/32"
+monitoring_cidr     = "203.0.113.10/32"
+app_port            = 5000
+key_name            = "cloudtask-ap-south-1"
+public_key          = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIReplaceWithYourPublicKey cloudtask"
+bucket_name        = ""
+monthly_budget_limit = 25
+budget_email         = "student@example.com"
