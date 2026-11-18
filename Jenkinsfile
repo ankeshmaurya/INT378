@@ -40,6 +40,7 @@ pipeline {
   }
 
   environment {
+    DOCKERHUB_REPOSITORY = 'ankeshmaurya/cloudtask'
     IMAGE_TAG = "${params.DOCKERHUB_REPOSITORY}:${env.BUILD_NUMBER}"
     IMAGE_LATEST = "${params.DOCKERHUB_REPOSITORY}:latest"
   }
