@@ -56,30 +56,31 @@ pipeline {
             returnStdout: true
           ).trim()
 
+          
           if (!params.DOCKERHUB_REPOSITORY?.trim()) {
-            error('DOCKERHUB_REPOSITORY is required.')
+              error('DOCKERHUB_REPOSITORY is required.')
           }
-
-          if (!(params.DOCKERHUB_REPOSITORY ==~
-              /[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*/)) {
-            error('Invalid Docker Hub repository format.')
+          
+          if (!params.DOCKERHUB_REPOSITORY.matches('[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*')) {
+              error('Invalid Docker Hub repository format.')
           }
-
+          
           if (!params.EC2_HOST?.trim()) {
-            error('EC2_HOST is required.')
+              error('EC2_HOST is required.')
+          }
+          
+          if (!params.EC2_HOST.matches('[A-Za-z0-9.-]+')) {
+              error('Invalid EC2 host format.')
+          }
+          
+          if (!params.EC2_USER.matches('[A-Za-z_][A-Za-z0-9_-]*')) {
+              error('Invalid EC2 username.')
+          }
+          
+          if (!params.EC2_APP_DIR.matches('/[A-Za-z0-9._/-]+')) {
+              error('Invalid EC2 application directory.')
           }
 
-          if (!(params.EC2_HOST ==~ /[A-Za-z0-9.-]+/)) {
-            error('Invalid EC2 host format.')
-          }
-
-          if (!(params.EC2_USER ==~ /[A-Za-z_][A-Za-z0-9_-]*/)) {
-            error('Invalid EC2 username.')
-          }
-
-          if (!(params.EC2_APP_DIR ==~ /\/[A-Za-z0-9._\/-]+/)) {
-            error('Invalid EC2 application directory.')
-          }
         }
       }
     }
